@@ -146,18 +146,35 @@ class QuicSender : public Application
         Ptr<Packet> packet;
         while ((packet = socket->Recv()))
         {
+            // --- NEW: Flow & RTT Trace Integration ---
+            // If you want to log QUIC RTT to your global g_flows array, you can do it here:
+            // Time rtt = Simulator::Now() - m_lastAckTime;
+            // (Assuming you map this application to its corresponding g_flows index)
+
             m_lastAckTime = Simulator::Now(); // Reset timeout timer
             
             if (m_inFlight > 0) m_inFlight--;
 
-            // Congestion Control: Grow the window
-            if (m_cwnd < m_ssthresh) {
-                m_cwnd++; // Slow start
-            } else {
-                m_cwnd += std::max(1u, 1 / m_cwnd); // Congestion avoidance
+            // -Congestion Control Window Growth (RFC 9002 Packet-Based Mode) ---
+            if (m_cwnd < m_ssthresh) 
+            {
+                // Slow Start: Exponential growth (1 packet per ACK)
+                m_cwnd++; 
+            } 
+            else 
+            {
+                // Congestion Avoidance: Additive Increase (Linear growth)
+                // In packet-based mode, cwnd increments by 1 ONLY after an entire window is ACKed.
+                // To avoid floating-point variables, we implement the classic NS-3 accumulator pattern:
+                static uint32_t ackCount = 0;
+                if (++ackCount >= m_cwnd)
+                {
+                    m_cwnd++;
+                    ackCount = 0; // Reset accumulator
+                }
             }
             
-            m_cwnd = std::min(m_cwnd, (uint32_t)200); // Cap window
+            m_cwnd = std::min(m_cwnd, (uint32_t)200); // Cap window to prevent overflow
         }
     }
 
