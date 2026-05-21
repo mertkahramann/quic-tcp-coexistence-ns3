@@ -51,6 +51,15 @@ struct FlowStats
 
 static std::vector<FlowStats> g_flows;
 
+struct RttSample
+{
+    double time_s;
+    std::string flowName;
+    double rtt_ms;
+};
+static std::vector<RttSample> g_rttSamples;
+
+
 NS_LOG_COMPONENT_DEFINE("QuicTcpCoexistence");
 
 // ============================================================
@@ -260,10 +269,11 @@ static void OnTcpRtt(std::string context, Time oldRtt, Time newRtt)
     // TCP generates thousands of ACKs, and printing all of them would freeze your terminal.
     std::string nodeId = context.substr(10, 1);
 
-    if (++g_rttCounters[nodeId] % 50 == 0 && now > 2.0) 
+    if (++g_rttCounters[nodeId] % 50 == 0) 
         {
             NS_LOG_UNCOND("[RTT Trace] Node-" << nodeId 
                         << " | t=" << now << "s | Measured TCP Latency: " << rttMs << " ms");
+            g_rttSamples.push_back({now, "Node-" + nodeId, rttMs});
         }
 }
 
@@ -283,7 +293,7 @@ int main(int argc, char* argv[])
     bool     useV3      = false;
     bool     useAqm     = false;
     bool     useRed     = false;
-    double   simTime    = 60.0;
+    double   simTime    = 120.0;
     double   bwMbps     = 10.0;
     double   delayMs    = 10.0;
     uint32_t nCubic     = 2;
@@ -436,7 +446,7 @@ int main(int argc, char* argv[])
     }
     else if (useRed)
     {
-        // NEW: RED implementation
+        // RED implementation
         // Configure standard RED thresholds based on packet units.
         // Rule of thumb for RED thresholds: MinTh ~ 1/4 of total buffer, MaxTh ~ 3x MinTh
         tch.SetRootQueueDisc("ns3::RedQueueDisc",
@@ -444,7 +454,7 @@ int main(int argc, char* argv[])
                              "LinkDelay", StringValue(dlStr.str()),
                              "MinTh", DoubleValue(bufSize / 4.0),
                              "MaxTh", DoubleValue(3.0 * (bufSize / 4.0)),
-                             "QueueLimit", UintegerValue(bufSize));
+                             "MaxSize", QueueSizeValue(QueueSize(QueueSizeUnit::PACKETS, bufSize)));
         NS_LOG_UNCOND("AQM: RED (Active) | MinTh=" << (bufSize / 4.0) << " MaxTh=" << (3.0 * (bufSize / 4.0)));
     }
     else
@@ -652,6 +662,13 @@ int main(int argc, char* argv[])
     }
     csv.close();
     NS_LOG_UNCOND("CSV: " << fname.str());
+
+    std::ofstream rttCsv("rtt_" + fname.str());
+    rttCsv << "time_s,flow,rtt_ms\n";
+    for (auto& s : g_rttSamples)
+        rttCsv << s.time_s << "," << s.flowName << "," << s.rtt_ms << "\n";
+    rttCsv.close();
+    NS_LOG_UNCOND("RTT CSV: rtt_" << fname.str());
 
     Simulator::Destroy();
     return 0;
