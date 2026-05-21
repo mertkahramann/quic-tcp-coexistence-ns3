@@ -35,6 +35,7 @@
 #include <string>
 #include <cmath>
 #include <sstream>
+#include <map>
 
 using namespace ns3;
 
@@ -230,6 +231,8 @@ static void OnPacketRx(uint32_t flowIdx, Ptr<const Packet> pkt, const Address& a
     g_flows[flowIdx].rxBytes += pkt->GetSize();
 }
 
+static std::map<std::string, uint32_t> g_rttCounters;
+
 // --- RTT Trace Callback ---
 static void OnTcpRtt(std::string context, Time oldRtt, Time newRtt)
 {
@@ -238,11 +241,13 @@ static void OnTcpRtt(std::string context, Time oldRtt, Time newRtt)
 
     // We only print 1 out of every 100 samples. 
     // TCP generates thousands of ACKs, and printing all of them would freeze your terminal.
-    static uint32_t rttCounter = 0;
-    if (rttCounter++ % 100 == 0 && now > 2.0) 
-    {
-        NS_LOG_UNCOND("RTT Update from: Node-" << context[12] << " [RTT Trace] t=" << now << "s | Measured TCP Latency: " << rttMs << " ms");
-    }
+    std::string nodeId = context.substr(10, 1);
+
+    if (++g_rttCounters[nodeId] % 50 == 0 && now > 2.0) 
+        {
+            NS_LOG_UNCOND("[RTT Trace] Node-" << nodeId 
+                        << " | t=" << now << "s | Measured TCP Latency: " << rttMs << " ms");
+        }
 }
 
 // Function to connect the trace AFTER the sockets have been dynamically created
@@ -260,13 +265,13 @@ int main(int argc, char* argv[])
     // --- Parameters ---
     bool     useV3      = false;
     bool     useAqm     = false;
-    double   simTime    = 5.0;
+    double   simTime    = 60.0;
     double   bwMbps     = 10.0;
     double   delayMs    = 10.0;
     uint32_t nCubic     = 2;
     uint32_t nBbr       = 2;      // BBR flow
     uint32_t nQuic      = 2;
-    uint32_t bufSize    = 200;    // packets
+    uint32_t bufSize    = 512;    // packets
     double   lossRate   = 0.0;    // 0.0 = no loss, 0.01 = 1%
     std::string tag     = "";     // output file tag
 
