@@ -337,16 +337,12 @@ class TcpBbr : public TcpCongestionOps
      */
     void UpdateAckAggregation(Ptr<TcpSocketState> tcb, const TcpRateOps::TcpRateSample& rs);
 
-  protected:
-    Time m_cycleStamp; //!< Last time gain cycle updated
-    uint32_t m_cycleIndex{0};            //!< Current index of gain cycle
-    TracedValue<double> m_pacingGain{0}; //!< The dynamic pacing gain factor
-
   private:
     BbrMode_t m_state{BbrMode_t::BBR_STARTUP}; //!< Current state of BBR state machine
     MaxBandwidthFilter_t m_maxBwFilter;        //!< Maximum bandwidth filter
     uint32_t m_bandwidthWindowLength{0}; //!< A constant specifying the length of the BBR.BtlBw max
                                          //!< filter window, default 10 packet-timed round trips.
+    TracedValue<double> m_pacingGain{0}; //!< The dynamic pacing gain factor
     TracedValue<double> m_cWndGain{0};   //!< The dynamic congestion window gain factor
     double m_highGain{0};       //!< A constant specifying highest gain factor, default is 2.89
     bool m_isPipeFilled{false}; //!< A boolean that records whether BBR has filled the pipe
@@ -372,6 +368,8 @@ class TcpBbr : public TcpCongestionOps
                       //!< from the windowed minimum recent round-trip delay sample.
     uint32_t m_sendQuantum{
         0};            //!< The maximum size of a data aggregate scheduled and transmitted together
+    Time m_cycleStamp; //!< Last time gain cycle updated
+    uint32_t m_cycleIndex{0};            //!< Current index of gain cycle
     bool m_minRttExpired{false};         //!< A boolean recording whether the BBR.RTprop has expired
     Time m_minRttFilterLen{Seconds(10)}; //!< A constant specifying the length of the RTProp min
                                          //!< filter window, default 10 secs.
@@ -392,6 +390,7 @@ class TcpBbr : public TcpCongestionOps
     bool m_hasSeenRtt{false};    //!< Have we seen RTT sample yet?
     double m_pacingMargin{0.01}; //!< BBR intentionally reduces the pacing rate by 1% to drain any
                                  //!< standing queues. See `bbr_rate_bytes_per_sec` in Linux.
+    friend class TcpBbrV3;
 };
 
 } // namespace ns3

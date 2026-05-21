@@ -1,0 +1,5 @@
+cmake-cache/
+build/
+__pycache__/
+*.pyc
+*.csv
