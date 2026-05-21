@@ -282,6 +282,7 @@ int main(int argc, char* argv[])
     // --- Parameters ---
     bool     useV3      = false;
     bool     useAqm     = false;
+    bool     useRed     = false;
     double   simTime    = 60.0;
     double   bwMbps     = 10.0;
     double   delayMs    = 10.0;
@@ -295,6 +296,7 @@ int main(int argc, char* argv[])
     CommandLine cmd(__FILE__);
     cmd.AddValue("useV3",    "Use TcpBbrV3 for TCP flows",          useV3);
     cmd.AddValue("useAqm",   "Use FqCoDel AQM on bottleneck",       useAqm);
+    cmd.AddValue("useRed",   "Use RED AQM on bottleneck",           useRed);
     cmd.AddValue("simTime",  "Simulation duration (s)",             simTime);
     cmd.AddValue("bwMbps",   "Bottleneck bandwidth (Mbps)",         bwMbps);
     cmd.AddValue("delayMs",  "Bottleneck one-way delay (ms)",       delayMs);
@@ -431,6 +433,19 @@ int main(int argc, char* argv[])
         // FqCoDel: fair queuing + controlled delay
         tch.SetRootQueueDisc("ns3::FqCoDelQueueDisc");
         NS_LOG_UNCOND("AQM: FqCoDel");
+    }
+    else if (useRed)
+    {
+        // NEW: RED implementation
+        // Configure standard RED thresholds based on packet units.
+        // Rule of thumb for RED thresholds: MinTh ~ 1/4 of total buffer, MaxTh ~ 3x MinTh
+        tch.SetRootQueueDisc("ns3::RedQueueDisc",
+                             "LinkBandwidth", StringValue(bwStr.str()),
+                             "LinkDelay", StringValue(dlStr.str()),
+                             "MinTh", DoubleValue(bufSize / 4.0),
+                             "MaxTh", DoubleValue(3.0 * (bufSize / 4.0)),
+                             "QueueLimit", UintegerValue(bufSize));
+        NS_LOG_UNCOND("AQM: RED (Active) | MinTh=" << (bufSize / 4.0) << " MaxTh=" << (3.0 * (bufSize / 4.0)));
     }
     else
     {
